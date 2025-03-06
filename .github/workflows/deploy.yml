@@ -8,33 +8,36 @@ on:
 jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
+
     steps:
-      # Checkout the repository
       - uses: actions/checkout@v2
-      
-      # Setup Node.js version 18
+
       - name: Setup Node.js 18
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-      
-      # Install dependencies and build the React app
-      - name: Install and build React app
-        working-directory: ./agency-dashboard
+
+      # Build React App
+      - name: Build React App
         run: |
           npm install
           npm run build
-      
-      # Install dependencies and build Firebase Functions
-      - name: Install and build Firebase Functions
-        working-directory: ./functions
-        run: |
-          npm install
-          npm run build
-      
-      # Deploy to Firebase Hosting and Functions
-      - name: Deploy to Firebase
+
+      - name: Deploy Firebase Hosting
         env:
           FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
-          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-        run: firebase deploy --only hosting,functions
+        run: firebase deploy --only hosting
+
+      # Build Firebase Functions
+      - name: Build Firebase Functions
+        working-directory: ./backend-functions
+        run: |
+          npm install
+          npm run lint -- --fix
+          npm run build
+
+      - name: Deploy Firebase Functions
+        working-directory: ./backend-functions
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+        run: firebase deploy --only functions
