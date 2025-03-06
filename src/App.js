@@ -4,7 +4,7 @@ import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
 import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
 
-// Replace with your actual Firebase configuration
+// Your actual Firebase configuration
 const firebaseConfig = {
   apiKey: "AIzaSyAaknlvrsDErmKQwlpDQc5deneeFv4w4LE",
   authDomain: "hrmny-cms.firebaseapp.com",
