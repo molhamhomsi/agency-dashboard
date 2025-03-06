@@ -9,34 +9,32 @@ jobs:
   build_and_deploy:
     runs-on: ubuntu-latest
     steps:
-      # Check out repository
+      # Checkout the repository
       - uses: actions/checkout@v2
-
+      
       # Setup Node.js version 18
       - name: Setup Node.js 18
         uses: actions/setup-node@v2
         with:
           node-version: '18'
-
-      # Install dependencies and build React app
+      
+      # Install dependencies and build the React app
       - name: Install and build React app
         working-directory: ./agency-dashboard
         run: |
           npm install
           npm run build
-
+      
       # Install dependencies and build Firebase Functions
       - name: Install and build Firebase Functions
         working-directory: ./functions
         run: |
           npm install
           npm run build
-
-      # Deploy to Firebase Hosting and Functions using Firebase Extended Action
+      
+      # Deploy to Firebase Hosting and Functions
       - name: Deploy to Firebase
-        uses: FirebaseExtended/action-hosting-deploy@v0
-        with:
-          firebaseServiceAccount: \${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
-          firebaseToken: \${{ secrets.FIREBASE_TOKEN }}
-          channelId: live
-          projectId: hrmny-cms
+        env:
+          FIREBASE_TOKEN: ${{ secrets.FIREBASE_TOKEN }}
+          FIREBASE_SERVICE_ACCOUNT: ${{ secrets.FIREBASE_SERVICE_ACCOUNT }}
+        run: firebase deploy --only hosting,functions
