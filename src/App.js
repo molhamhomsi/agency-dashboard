@@ -2,9 +2,18 @@ import React, { useState, useEffect } from 'react';
 import { initializeApp } from 'firebase/app';
 import { getFunctions, httpsCallable } from 'firebase/functions';
 import { getFirestore, collection, getDocs } from 'firebase/firestore';
-import { getAuth, onAuthStateChanged, signInWithPopup, GoogleAuthProvider, signOut } from 'firebase/auth';
+import { 
+  getAuth, 
+  onAuthStateChanged, 
+  signInWithPopup, 
+  GoogleAuthProvider, 
+  signOut 
+} from 'firebase/auth';
+import { ThemeProvider, Box, Typography, Button, AppBar, Tabs, Tab } from '@mui/material';
+import theme from './theme';
+import DataVisualization from './DataVisualization';
 
-// Your actual Firebase configuration
+// Firebase configuration – replace with your actual config
 const firebaseConfig = {
   apiKey: "AIzaSyAaknlvrsDErmKQwlpDQc5deneeFv4w4LE",
   authDomain: "hrmny-cms.firebaseapp.com",
@@ -15,21 +24,38 @@ const firebaseConfig = {
 };
 
 const app = initializeApp(firebaseConfig);
-const functions = getFunctions(app, "us-central1");
+const functions = getFunctions(app, 'us-central1');
 const db = getFirestore(app);
 const auth = getAuth(app);
 
+// Helper component for Tab Panels
+function TabPanel(props) {
+  const { children, value, index, ...other } = props;
+  return (
+    <div
+      role="tabpanel"
+      hidden={value !== index}
+      id={`dashboard-tabpanel-${index}`}
+      aria-labelledby={`dashboard-tab-${index}`}
+      {...other}
+    >
+      {value === index && (
+        <Box sx={{ p: 3 }}>
+          <Typography component="div">{children}</Typography>
+        </Box>
+      )}
+    </div>
+  );
+}
+
 function App() {
+  const [tabIndex, setTabIndex] = useState(0);
+  const [user, setUser] = useState(null);
+  const [retainers, setRetainers] = useState([]);
   const [createResponse, setCreateResponse] = useState(null);
   const [simulateResponse, setSimulateResponse] = useState(null);
-  const [allocationResponse, setAllocationResponse] = useState(null);
-  const [financeResponse, setFinanceResponse] = useState(null);
-  const [podResponse, setPodResponse] = useState(null);
-  const [timeResponse, setTimeResponse] = useState(null);
-  const [retainers, setRetainers] = useState([]);
-  const [user, setUser] = useState(null);
 
-  // Monitor authentication state
+  // Monitor auth state changes
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
@@ -42,119 +68,24 @@ function App() {
     return () => unsubscribe();
   }, []);
 
-  // Sign in with Google
+  // Sign in using Google
   const signIn = async () => {
     const provider = new GoogleAuthProvider();
     try {
-      await signInWithPopup(auth, provider);
+      const result = await signInWithPopup(auth, provider);
+      console.log("Sign in successful:", result.user);
     } catch (error) {
       console.error("Error during sign in:", error);
     }
   };
 
-  // Sign out
+  // Sign out the current user
   const signOutUser = async () => {
     try {
       await signOut(auth);
+      console.log("Signed out successfully");
     } catch (error) {
       console.error("Error signing out:", error);
-    }
-  };
-
-  // Call createRetainer Cloud Function
-  const callCreateRetainer = async () => {
-    try {
-      const createRetainer = httpsCallable(functions, "createRetainer");
-      const result = await createRetainer({
-        clientName: "Example Corp",
-        monthlyFee: 5000,
-        scope: ["Design", "Development"]
-      });
-      setCreateResponse(result.data);
-      fetchRetainers();
-    } catch (error) {
-      console.error("Error calling createRetainer:", error);
-    }
-  };
-
-  // Call simulateScenario Cloud Function
-  const callSimulateScenario = async () => {
-    try {
-      const simulateScenario = httpsCallable(functions, "simulateScenario");
-      const result = await simulateScenario({
-        currentRetainers: 10,
-        newRetainers: 5,
-        costPerRetainer: 1000,
-        revenuePerRetainer: 1500
-      });
-      setSimulateResponse(result.data);
-    } catch (error) {
-      console.error("Error calling simulateScenario:", error);
-    }
-  };
-
-  // Call allocateResource Cloud Function
-  const callAllocateResource = async () => {
-    try {
-      const allocateResource = httpsCallable(functions, "allocateResource");
-      const result = await allocateResource({
-        retainerId: "testRetainerId",
-        teamMembers: ["Alice", "Bob"],
-        freelancers: ["Charlie"],
-        budget: 1500,
-        notes: "Initial allocation"
-      });
-      setAllocationResponse(result.data);
-    } catch (error) {
-      console.error("Error calling allocateResource:", error);
-    }
-  };
-
-  // Call updateFinance Cloud Function
-  const callUpdateFinance = async () => {
-    try {
-      const updateFinance = httpsCallable(functions, "updateFinance");
-      const result = await updateFinance({
-        retainerId: "testRetainerId",
-        month: "2025-03",
-        revenue: 10000,
-        cost: 7000
-      });
-      setFinanceResponse(result.data);
-    } catch (error) {
-      console.error("Error calling updateFinance:", error);
-    }
-  };
-
-  // Call createPod Cloud Function
-  const callCreatePod = async () => {
-    try {
-      const createPod = httpsCallable(functions, "createPod");
-      const result = await createPod({
-        manager: "Manager1",
-        retainerIds: ["retainerId1", "retainerId2"],
-        podName: "Pod Alpha"
-      });
-      setPodResponse(result.data);
-    } catch (error) {
-      console.error("Error calling createPod:", error);
-    }
-  };
-
-  // Call trackTime Cloud Function
-  const callTrackTime = async () => {
-    try {
-      const trackTime = httpsCallable(functions, "trackTime");
-      const result = await trackTime({
-        retainerId: "testRetainerId",
-        taskId: "task001",
-        taskName: "Design Meeting",
-        timeSpent: 60,
-        category: "Meeting"
-      });
-      setTimeResponse(result.data);
-    } catch (error) {
-      console.error("Error calling trackTime:", error);
     }
   };
 
@@ -162,88 +93,133 @@ function App() {
   const fetchRetainers = async () => {
     try {
       const retainerCollection = collection(db, "retainers");
-      const retainerSnapshot = await getDocs(retainerCollection);
-      const retainerList = retainerSnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+      const snapshot = await getDocs(retainerCollection);
+      const retainerList = snapshot.docs.map(doc => ({
+        id: doc.id,
+        ...doc.data()
+      }));
       setRetainers(retainerList);
     } catch (error) {
       console.error("Error fetching retainers:", error);
     }
   };
 
+  // Call createRetainer Cloud Function (ensuring auth is present)
+  const callCreateRetainer = async () => {
+    if (!auth.currentUser) {
+      await signIn();
+      if (!auth.currentUser) {
+        console.error("User is still not signed in.");
+        return;
+      }
+    }
+    try {
+      const createRetainer = httpsCallable(functions, 'createRetainer');
+      const result = await createRetainer({
+        clientName: "Example Corp",
+        monthlyFee: 5000,
+        scope: ["Design", "Development"]
+      });
+      console.log("Retainer created:", result.data);
+      setCreateResponse(result.data);
+      fetchRetainers();
+    } catch (error) {
+      console.error("Error calling createRetainer:", error);
+    }
+  };
+
+  // Call simulateScenario Cloud Function (ensuring auth is present)
+  const callSimulateScenario = async () => {
+    if (!auth.currentUser) {
+      await signIn();
+      // Wait briefly to let auth state update
+      await new Promise(resolve => setTimeout(resolve, 2000));
+      if (!auth.currentUser) {
+        console.error("User is still not signed in.");
+        return;
+      }
+    }
+    try {
+      const simulateScenario = httpsCallable(functions, 'simulateScenario');
+      const result = await simulateScenario({
+        currentRetainers: 10,
+        newRetainers: 5,
+        costPerRetainer: 1000,
+        revenuePerRetainer: 1500
+      });
+      console.log("Scenario result:", result.data);
+      setSimulateResponse(result.data);
+    } catch (error) {
+      console.error("Error calling simulateScenario:", error);
+    }
+  };
+
+  const handleTabChange = (event, newValue) => {
+    setTabIndex(newValue);
+  };
+
   return (
-    <div style={{ padding: '20px', fontFamily: 'Arial, sans-serif' }}>
-      <h1>Agency Dashboard</h1>
-      {!user ? (
-        <button onClick={signIn} style={{ padding: '10px 20px', fontSize: '16px' }}>
-          Sign In with Google
-        </button>
-      ) : (
-        <div>
-          <p>Signed in as {user.displayName} ({user.email})</p>
-          <button onClick={signOutUser} style={{ padding: '10px 20px', fontSize: '16px' }}>
-            Sign Out
-          </button>
-        </div>
-      )}
-      {user && (
-        <>
-          <button onClick={callCreateRetainer} style={{ padding: '10px 20px', fontSize: '16px', marginTop: '20px' }}>
-            Create Retainer
-          </button>
-          {createResponse && (
-            <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #ccc' }}>
-              <h2>Create Retainer Response:</h2>
-              <pre>{JSON.stringify(createResponse, null, 2)}</pre>
+    <ThemeProvider theme={theme}>
+      <div style={{ padding: '20px' }}>
+        <AppBar position="static">
+          <Tabs
+            value={tabIndex}
+            onChange={handleTabChange}
+            variant="scrollable"
+            scrollButtons="auto"
+          >
+            <Tab label="Dashboard" />
+            <Tab label="Retainers" />
+            <Tab label="Modules" />
+            <Tab label="Analytics" />
+          </Tabs>
+        </AppBar>
+        <TabPanel value={tabIndex} index={0}>
+          <Typography variant="h4" component="h1">
+            Agency Dashboard
+          </Typography>
+          {auth.currentUser ? (
+            <div>
+              <Typography variant="body1">
+                Welcome, {user.displayName} ({user.email})!
+              </Typography>
+              <Button variant="contained" onClick={signOutUser} sx={{ mt: 2 }}>
+                Sign Out
+              </Button>
+              <Box sx={{ mt: 3 }}>
+                <Typography variant="body2">
+                  Use the buttons below to interact with the system:
+                </Typography>
+                <Button variant="contained" onClick={callCreateRetainer} sx={{ mt: 2 }}>
+                  Create Retainer
+                </Button>
+                <Button variant="contained" onClick={callSimulateScenario} sx={{ mt: 2, ml: 2 }}>
+                  Simulate Scenario
+                </Button>
+              </Box>
+              {createResponse && (
+                <Box sx={{ mt: 2, p: 2, border: '1px solid #ccc' }}>
+                  <Typography variant="h6">Create Retainer Response:</Typography>
+                  <pre>{JSON.stringify(createResponse, null, 2)}</pre>
+                </Box>
+              )}
+              {simulateResponse && (
+                <Box sx={{ mt: 2, p: 2, border: '1px solid #ccc' }}>
+                  <Typography variant="h6">Scenario Response:</Typography>
+                  <pre>{JSON.stringify(simulateResponse, null, 2)}</pre>
+                </Box>
+              )}
             </div>
+          ) : (
+            <Button variant="contained" onClick={signIn}>
+              Sign In with Google
+            </Button>
           )}
-          <button onClick={callSimulateScenario} style={{ marginTop: '20px', padding: '10px 20px', fontSize: '16px' }}>
-            Simulate Scenario
-          </button>
-          {simulateResponse && (
-            <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #ccc' }}>
-              <h2>Scenario Simulation Response:</h2>
-              <pre>{JSON.stringify(simulateResponse, null, 2)}</pre>
-            </div>
-          )}
-          <button onClick={callAllocateResource} style={{ marginTop: '20px', padding: '10px 20px', fontSize: '16px' }}>
-            Allocate Resource
-          </button>
-          {allocationResponse && (
-            <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #ccc' }}>
-              <h2>Resource Allocation Response:</h2>
-              <pre>{JSON.stringify(allocationResponse, null, 2)}</pre>
-            </div>
-          )}
-          <button onClick={callUpdateFinance} style={{ marginTop: '20px', padding: '10px 20px', fontSize: '16px' }}>
-            Update Finance
-          </button>
-          {financeResponse && (
-            <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #ccc' }}>
-              <h2>Finance Update Response:</h2>
-              <pre>{JSON.stringify(financeResponse, null, 2)}</pre>
-            </div>
-          )}
-          <button onClick={callCreatePod} style={{ marginTop: '20px', padding: '10px 20px', fontSize: '16px' }}>
-            Create Pod
-          </button>
-          {podResponse && (
-            <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #ccc' }}>
-              <h2>Create Pod Response:</h2>
-              <pre>{JSON.stringify(podResponse, null, 2)}</pre>
-            </div>
-          )}
-          <button onClick={callTrackTime} style={{ marginTop: '20px', padding: '10px 20px', fontSize: '16px' }}>
-            Track Time
-          </button>
-          {timeResponse && (
-            <div style={{ marginTop: '20px', padding: '10px', border: '1px solid #ccc' }}>
-              <h2>Time Tracking Response:</h2>
-              <pre>{JSON.stringify(timeResponse, null, 2)}</pre>
-            </div>
-          )}
-          <h2 style={{ marginTop: '40px' }}>Retainers</h2>
+        </TabPanel>
+        <TabPanel value={tabIndex} index={1}>
+          <Typography variant="h5" component="h2">Retainers</Typography>
           {retainers.length === 0 ? (
-            <p>No retainers found.</p>
+            <Typography>No retainers found.</Typography>
           ) : (
             <ul>
               {retainers.map(retainer => (
@@ -253,10 +229,31 @@ function App() {
               ))}
             </ul>
           )}
-        </>
-      )}
-    </div>
+        </TabPanel>
+        <TabPanel value={tabIndex} index={2}>
+          <Typography variant="h5" component="h2">Modules</Typography>
+          <Typography variant="body1">
+            Module integration coming soon.
+          </Typography>
+        </TabPanel>
+        <TabPanel value={tabIndex} index={3}>
+          <Typography variant="h5" component="h2">Analytics</Typography>
+          <DataVisualization />
+        </TabPanel>
+      </div>
+    </ThemeProvider>
   );
 }
 
 export default App;
+// Import AdvancedAnalytics component at the top with your other imports:
+import AdvancedAnalytics from './AdvancedAnalytics';
+
+// In the Tabs component (inside AppBar), add:
+<Tab label="Advanced Analytics" />
+
+// Then, add a new TabPanel for it (e.g., after the Analytics tab):
+<TabPanel value={tabIndex} index={4}>
+  <Typography variant="h5" component="h2">Advanced Analytics</Typography>
+  <AdvancedAnalytics />
+</TabPanel>
